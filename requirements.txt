@@ -3,3 +3,4 @@ pillow
 pdf2image
 streamlit
 python-docx
+PyMuPDF
