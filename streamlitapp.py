@@ -5,6 +5,7 @@ import fitz  # PyMuPDF
 from docx import Document
 import tempfile
 import os
+from io import BytesIO
 
 st.set_page_config(page_title="Gujarati Text Extractor", layout="centered")
 
