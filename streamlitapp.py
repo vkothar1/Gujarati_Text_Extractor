@@ -1,7 +1,7 @@
 import streamlit as st
 from PIL import Image
 import pytesseract
-from pdf2image import convert_from_path
+import fitz  # PyMuPDF for PDF text extraction
 from docx import Document
 import tempfile
 import os
@@ -18,16 +18,22 @@ def extract_text_from_image(img):
 
 def extract_text_from_pdf(pdf_file):
     text = ""
+    
+    # Create a temporary file to save the uploaded PDF
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
         tmp_pdf.write(pdf_file.read())
         tmp_pdf_path = tmp_pdf.name
 
-    images = convert_from_path(tmp_pdf_path)
-    for i, img in enumerate(images):
-        text += extract_text_from_image(img)
-        text += f"\n_________________________PAGE {i+1}____________________________\n"
-
-    os.remove(tmp_pdf_path)
+    # Open the PDF using PyMuPDF
+    doc = fitz.open(tmp_pdf_path)
+    
+    # Loop through all pages in the PDF and extract text
+    for page_num in range(len(doc)):
+        page = doc.load_page(page_num)  # Load each page
+        text += page.get_text("text")  # Extract text from the page
+        text += f"\n_________________________PAGE {page_num + 1}____________________________\n"
+    
+    os.remove(tmp_pdf_path)  # Clean up temporary file
     return text
 
 def extract_text_from_docx(file):
