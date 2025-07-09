@@ -54,7 +54,7 @@ def extract_text_from_large_pdf_in_chunks(pdf_file, lang, batch_size):
             all_text += page_text
             st.write(f"✅ Done page {page_num + 1}")
 
-    os.remove(tmp_pdf_path)
+    os.remove(tmp_pdf_path
     return all_text
 
 def extract_text_from_docx(file):
