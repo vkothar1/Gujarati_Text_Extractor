@@ -60,9 +60,8 @@ def extract_text_from_pdf_stream(pdf_stream, lang, batch_size):
     os.remove(tmp_pdf_path)
     return text
 
-def split_pdf_return_paths(pdf_file, batch_size):
+def split_pdf_return_paths(pdf_bytes, batch_size):
     temp_dir = tempfile.mkdtemp()
-    pdf_bytes = pdf_file.read()
     pdf = fitz.open(stream=pdf_bytes, filetype="pdf")
     total_pages = len(pdf)
     split_paths = []
@@ -84,10 +83,11 @@ def extract_text_from_docx(file):
 
 if uploaded_file:
     file_type = uploaded_file.type
+    file_bytes = uploaded_file.read() if "pdf" in file_type else None
 
     if split_pdf and "pdf" in file_type:
         with st.spinner("✂️ Splitting and Extracting text from all batches..."):
-            split_paths = split_pdf_return_paths(uploaded_file, batch_size)
+            split_paths = split_pdf_return_paths(file_bytes, batch_size)
             combined_text = ""
 
             for path in split_paths:
@@ -98,10 +98,11 @@ if uploaded_file:
             st.success("✅ Text extraction from all batches complete!")
             st.text_area(f"📝 Extracted Text ({language_option}):", value=combined_text, height=300)
             st.download_button("⬇️ Download as TXT", combined_text, file_name=f"{language_option.lower()}_extracted.txt")
+
     else:
         with st.spinner(f"🔍 Extracting {language_option} text..."):
             if "pdf" in file_type:
-                result = extract_text_from_pdf_stream(uploaded_file, tesseract_lang, batch_size)
+                result = extract_text_from_pdf_stream(BytesIO(file_bytes), tesseract_lang, batch_size)
             elif "image" in file_type:
                 image = Image.open(uploaded_file)
                 result = extract_text_from_image(image, tesseract_lang)
