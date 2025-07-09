@@ -32,30 +32,30 @@ def extract_text_from_image(img, lang):
     bw = gray.point(lambda x: 0 if x < 128 else 255, '1')
     return pytesseract.image_to_string(bw, lang=lang)
 
-def extract_text_from_pdf(pdf_file, lang, batch_size):
-    text = ""
+def extract_text_from_large_pdf_in_chunks(pdf_file, lang, batch_size):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
         tmp_pdf.write(pdf_file.read())
         tmp_pdf_path = tmp_pdf.name
 
     doc = fitz.open(tmp_pdf_path)
     total_pages = len(doc)
+    all_text = ""
 
     for batch_start in range(0, total_pages, batch_size):
         batch_end = min(batch_start + batch_size, total_pages)
-        #st.write(f"🔄 Processing pages {batch_start + 1} to {batch_end}...")
+        st.write(f"🔄 Processing pages {batch_start + 1} to {batch_end}...")
 
         for page_num in range(batch_start, batch_end):
             page = doc.load_page(page_num)
-            pix = page.get_pixmap(dpi=200)
+            pix = page.get_pixmap(dpi=150)  # Speed-optimized DPI
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
             page_text = extract_text_from_image(img, lang)
-            text += f"\n_________________________PAGE {page_num + 1}____________________________\n"
-            text += page_text
-            #st.write(f"✅ Extracted text from page {page_num + 1}")
+            all_text += f"\n_________________________PAGE {page_num + 1}____________________________\n"
+            all_text += page_text
+            st.write(f"✅ Done page {page_num + 1}")
 
     os.remove(tmp_pdf_path)
-    return text
+    return all_text
 
 def extract_text_from_docx(file):
     doc = Document(file)
@@ -66,7 +66,7 @@ if uploaded_file:
 
     with st.spinner(f"🔍 Extracting {language_option} text..."):
         if "pdf" in file_type:
-            result = extract_text_from_pdf(uploaded_file, tesseract_lang, batch_size)
+            result = extract_text_from_large_pdf_in_chunks(uploaded_file, tesseract_lang, batch_size)
         elif "image" in file_type:
             image = Image.open(uploaded_file)
             result = extract_text_from_image(image, tesseract_lang)
@@ -76,5 +76,5 @@ if uploaded_file:
             result = "❌ Unsupported file type."
 
     st.success("✅ Text extraction complete!")
-    st.text_area(f"📝 Extracted Text ({language_option}):", value=result, height=300)
+    st.text_area(f"📝 Extracted Text ({language_option}):", value=result[:10000], height=300)
     st.download_button("⬇️ Download as TXT", result, file_name=f"{language_option.lower()}_text.txt")
