@@ -43,10 +43,11 @@ def extract_text_from_pdf_stream(pdf_stream, lang, batch_size):
 
     doc = fitz.open(tmp_pdf_path)
     total_pages = len(doc)
+    progress = st.empty()
 
     for batch_start in range(0, total_pages, batch_size):
         batch_end = min(batch_start + batch_size, total_pages)
-        st.write(f"🔄 Processing pages {batch_start + 1} to {batch_end}...")
+        progress.write(f"🔄 Processing pages {batch_start + 1} to {batch_end}...")
 
         for page_num in range(batch_start, batch_end):
             page = doc.load_page(page_num)
@@ -55,7 +56,6 @@ def extract_text_from_pdf_stream(pdf_stream, lang, batch_size):
             page_text = extract_text_from_image(img, lang)
             text += f"\n_________________________PAGE {page_num + 1}____________________________\n"
             text += page_text
-            st.write(f"✅ Extracted text from page {page_num + 1}")
 
     os.remove(tmp_pdf_path)
     return text
