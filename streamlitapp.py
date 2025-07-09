@@ -22,31 +22,36 @@ lang_map = {
 }
 tesseract_lang = lang_map[language_option]
 
+# Batch size selector for PDFs
+batch_size = st.number_input("Pages per Batch (PDF only)", min_value=10, max_value=100, value=50, step=10)
+
 uploaded_file = st.file_uploader("Upload a file", type=["pdf", "png", "jpg", "jpeg", "docx"])
 
 def extract_text_from_image(img, lang):
-    # Convert image to grayscale
     gray = img.convert("L")
-
-    # Binarize to improve OCR accuracy
     bw = gray.point(lambda x: 0 if x < 128 else 255, '1')
-
     return pytesseract.image_to_string(bw, lang=lang)
 
-def extract_text_from_pdf(pdf_file, lang):
+def extract_text_from_pdf(pdf_file, lang, batch_size):
     text = ""
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
         tmp_pdf.write(pdf_file.read())
         tmp_pdf_path = tmp_pdf.name
 
     doc = fitz.open(tmp_pdf_path)
-    for page_num in range(len(doc)):
-        page = doc.load_page(page_num)
-        pix = page.get_pixmap(dpi=300)
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        page_text = extract_text_from_image(img, lang)
-        text += f"\n_________________________PAGE {page_num + 1}____________________________\n"
-        text += page_text
+    total_pages = len(doc)
+
+    for batch_start in range(0, total_pages, batch_size):
+        batch_end = min(batch_start + batch_size, total_pages)
+        st.write(f"🔄 Processing pages {batch_start + 1} to {batch_end}...")
+
+        for page_num in range(batch_start, batch_end):
+            page = doc.load_page(page_num)
+            pix = page.get_pixmap(dpi=300)
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            page_text = extract_text_from_image(img, lang)
+            text += f"\n_________________________PAGE {page_num + 1}____________________________\n"
+            text += page_text
 
     os.remove(tmp_pdf_path)
     return text
@@ -60,7 +65,7 @@ if uploaded_file:
 
     with st.spinner(f"🔍 Extracting {language_option} text..."):
         if "pdf" in file_type:
-            result = extract_text_from_pdf(uploaded_file, tesseract_lang)
+            result = extract_text_from_pdf(uploaded_file, tesseract_lang, batch_size)
         elif "image" in file_type:
             image = Image.open(uploaded_file)
             result = extract_text_from_image(image, tesseract_lang)
