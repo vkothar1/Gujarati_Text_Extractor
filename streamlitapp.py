@@ -47,7 +47,7 @@ def extract_text_from_pdf(pdf_file, lang, batch_size):
 
         for page_num in range(batch_start, batch_end):
             page = doc.load_page(page_num)
-            pix = page.get_pixmap(dpi=100)
+            pix = page.get_pixmap(dpi=200)
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
             page_text = extract_text_from_image(img, lang)
             text += f"\n_________________________PAGE {page_num + 1}____________________________\n"
