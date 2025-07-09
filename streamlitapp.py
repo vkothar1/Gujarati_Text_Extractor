@@ -28,9 +28,8 @@ batch_size = st.number_input("Pages per Batch (PDF only)", min_value=10, max_val
 uploaded_file = st.file_uploader("Upload a file", type=["pdf", "png", "jpg", "jpeg", "docx"])
 
 def extract_text_from_image(img, lang):
-    gray = img.convert("L")
-    bw = gray.point(lambda x: 0 if x < 128 else 255, '1')
-    return pytesseract.image_to_string(bw, lang=lang)
+    custom_config = r'--oem 1 --psm 6'
+    return pytesseract.image_to_string(img, lang=lang, config=custom_config)
 
 def extract_text_from_pdf(pdf_file, lang, batch_size):
     text = ""
@@ -47,7 +46,7 @@ def extract_text_from_pdf(pdf_file, lang, batch_size):
 
         for page_num in range(batch_start, batch_end):
             page = doc.load_page(page_num)
-            pix = page.get_pixmap(dpi=300)
+            pix = page.get_pixmap(dpi=200)  # Speed boost here
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
             page_text = extract_text_from_image(img, lang)
             text += f"\n_________________________PAGE {page_num + 1}____________________________\n"
