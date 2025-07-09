@@ -8,6 +8,7 @@ import os
 import shutil
 from io import BytesIO
 from zipfile import ZipFile
+import concurrent.futures
 
 st.set_page_config(page_title="Multilingual Text Extractor", layout="centered")
 
@@ -37,7 +38,15 @@ def extract_text_from_image(img, lang):
     bw = gray.point(lambda x: 0 if x < 128 else 255, '1')
     return pytesseract.image_to_string(bw, lang=lang)
 
-def extract_text_from_pdf(pdf_file, lang, batch_size):
+def process_page(doc_path, page_num, lang):
+    doc = fitz.open(doc_path)
+    page = doc.load_page(page_num)
+    pix = page.get_pixmap(dpi=200)  # optimized dpi
+    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    page_text = extract_text_from_image(img, lang)
+    return f"\n_________________________PAGE {page_num + 1}____________________________\n" + page_text
+
+def extract_text_from_pdf_parallel(pdf_file, lang, batch_size):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
         tmp_pdf.write(pdf_file.read())
         tmp_pdf_path = tmp_pdf.name
@@ -51,17 +60,12 @@ def extract_text_from_pdf(pdf_file, lang, batch_size):
 
     for batch_start in range(0, total_pages, batch_size):
         batch_end = min(batch_start + batch_size, total_pages)
-        batch_text = ""
-        st.write(f"🔄 Processing pages {batch_start + 1} to {batch_end}...")
+        page_range = list(range(batch_start, batch_end))
 
-        for page_num in range(batch_start, batch_end):
-            page = doc.load_page(page_num)
-            pix = page.get_pixmap(dpi=200)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            page_text = extract_text_from_image(img, lang)
-            batch_text += f"\n_________________________PAGE {page_num + 1}____________________________\n"
-            batch_text += page_text
-            st.write(f"✅ Extracted text from page {page_num + 1}")
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            results = executor.map(lambda p: process_page(tmp_pdf_path, p, lang), page_range)
+
+        batch_text = "".join(results)
 
         batch_filename = f"text_batch_{batch_start + 1}_to_{batch_end}.txt"
         batch_path = os.path.join(output_dir, batch_filename)
@@ -74,7 +78,6 @@ def extract_text_from_pdf(pdf_file, lang, batch_size):
             zipf.write(path, arcname=os.path.basename(path))
 
     zip_buffer.seek(0)
-    shutil.rmtree(output_dir)
     os.remove(tmp_pdf_path)
     return zip_buffer
 
@@ -116,7 +119,7 @@ if uploaded_file:
     else:
         with st.spinner(f"🔍 Extracting {language_option} text..."):
             if "pdf" in file_type:
-                zip_data = extract_text_from_pdf(uploaded_file, tesseract_lang, batch_size)
+                zip_data = extract_text_from_pdf_parallel(uploaded_file, tesseract_lang, batch_size)
                 st.download_button("⬇️ Download Extracted Text Batches as ZIP", zip_data, file_name="text_batches.zip", mime="application/zip")
             elif "image" in file_type:
                 image = Image.open(uploaded_file)
